@@ -1,0 +1,330 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Auth API",
+    "description": "Go auth služba — JWT, refresh tokeny, e-mail verify a password reset.\n\n1. Nastav `baseUrl` (default `http://localhost:8080`).\n2. Register → token z Mailpit vlož do `verificationToken` → Verify Email → Login.\n3. Login automaticky uloží `authenticationToken` a `refreshToken`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "authenticationToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "verificationToken", "value": "" },
+    { "key": "passwordResetToken", "value": "" },
+    { "key": "email", "value": "demo@example.com" },
+    { "key": "password", "value": "password123" }
+  ],
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "description": "Liveness check."
+          }
+        },
+        {
+          "name": "JWKS",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/.well-known/jwks.json",
+            "description": "Veřejné JWT klíče pro validaci access tokenů v ostatních službách."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"firstName\": \"Jan\",\n  \"lastName\": \"Novak\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Registrace. Verification token přijde do Mailpitu (https://mail.localhost:8443/) — zkopíruj do `verificationToken`."
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/verify-email",
+            "description": "Ověření e-mailu (64 hex token z Mailpitu)."
+          }
+        },
+        {
+          "name": "Resend Verification",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/verify-email/resend",
+            "description": "Znovu odešle verification e-mail (rate limited)."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.authenticationToken) {",
+                  "    pm.collectionVariables.set('authenticationToken', data.authenticationToken);",
+                  "  }",
+                  "  if (data.refreshToken) {",
+                  "    pm.collectionVariables.set('refreshToken', data.refreshToken);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Login. Uloží `authenticationToken` a `refreshToken` do collection variables."
+          }
+        },
+        {
+          "name": "Refresh",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  if (data.authenticationToken) {",
+                  "    pm.collectionVariables.set('authenticationToken', data.authenticationToken);",
+                  "  }",
+                  "  if (data.refreshToken) {",
+                  "    pm.collectionVariables.set('refreshToken', data.refreshToken);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/refresh",
+            "description": "Nový access token. Nový refresh token jen pokud stávající expiruje do 1 h."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/logout",
+            "description": "Revokuje refresh token. Idempotentní — vrací 204 i když token neexistuje nebo už byl revokován."
+          }
+        },
+        {
+          "name": "Password Reset Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/password-reset",
+            "description": "Požádá o reset hesla. Token z Mailpitu vlož do `passwordResetToken`."
+          }
+        },
+        {
+          "name": "Validate Password Reset Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/password-reset/validate",
+            "description": "Ověří, že reset token je platný."
+          }
+        },
+        {
+          "name": "Set Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{passwordResetToken}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/auth/password-reset/confirm",
+            "description": "Nastaví nové heslo pomocí reset tokenu."
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          { "key": "token", "value": "{{authenticationToken}}", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{authenticationToken}}", "type": "string" }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/user/profile",
+            "description": "Profil přihlášeného uživatele."
+          }
+        },
+        {
+          "name": "Update Profile (PATCH)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{authenticationToken}}", "type": "string" }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jan\",\n  \"lastName\": \"Novak\",\n  \"phone\": \"+420123456789\"\n}"
+            },
+            "url": "{{baseUrl}}/api/user/profile",
+            "description": "Částečná aktualizace profilu → `{updated:true}`. `phone: null` smaže telefon. `PUT` je alias se stejným chováním."
+          }
+        },
+        {
+          "name": "Update Profile (PUT alias)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{authenticationToken}}", "type": "string" }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jan\",\n  \"lastName\": \"Novak\",\n  \"phone\": \"+420123456789\"\n}"
+            },
+            "url": "{{baseUrl}}/api/user/profile",
+            "description": "Alias pro PATCH — stejná partial update semantika (zpětná kompatibilita)."
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{authenticationToken}}", "type": "string" }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"password456\"\n}"
+            },
+            "url": "{{baseUrl}}/api/user/password",
+            "description": "Změna hesla → `{passwordChanged:true}`. Revokuje všechny refresh tokeny."
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{authenticationToken}}", "type": "string" }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmation\": \"DELETE\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": "{{baseUrl}}/api/user/account",
+            "description": "Deaktivace účtu → `204 No Content`. `confirmation` musí být přesně `DELETE`."
+          }
+        }
+      ]
+    }
+  ]
+}

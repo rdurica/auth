@@ -1,0 +1,23 @@
+# Binaries
+/bin/
+/auth
+*.exe
+*.test
+
+# Keys (keep example generation script)
+keys/*.pem
+!keys/.gitkeep
+
+# Env
+.env
+.env.local
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Coverage
+coverage.out
+coverage.html
